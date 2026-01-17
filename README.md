@@ -20,7 +20,7 @@ A lightweight, containerized application that bridges **Dynamics 365 (D365)** an
 └─────────────┘                    │
                                    ▼
                           ┌─────────────────┐
-                          │ Local WS Bridge │  ws://localhost:8765
+                          │ Local WS Bridge │  ws://localhost:5001/printers
                           │ (User's PC)     │
                           └────────┬────────┘
                                    │
@@ -108,11 +108,11 @@ Open the `view_url` in a browser to see the print page with:
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| `GET` | `/` | Landing page with API info |
 | `POST` | `/api/print-jobs` | Create print job, returns `job_id` and `view_url` |
 | `GET` | `/view?id={uuid}` | View print job page (SSR HTML) |
 | `GET` | `/health` | Health check endpoint |
+| `GET` | `/docs` | Swagger API documentation |
 
 ### Request Body Schema
 
@@ -136,6 +136,7 @@ web-print-client/
 │       ├── deploy.md        # Docker deployment workflow
 │       └── test.md          # API testing workflow
 ├── templates/
+│   ├── index.html           # Landing page
 │   └── print_page.html      # Jinja2 template with WebSocket JS
 ├── main.py                  # FastAPI application
 ├── requirements.txt         # Python dependencies
@@ -149,7 +150,7 @@ web-print-client/
 
 ## Local WebSocket Bridge
 
-The HTML page connects to `ws://localhost:8765` to communicate with a **separate local Python script** running on the user's PC. This bridge handles:
+The HTML page connects to `ws://localhost:5001/printers` to communicate with a **local C# WebSocket server** running on the user's PC. This bridge handles:
 
 1. Listing available printers
 2. Receiving ZPL data from the browser
@@ -160,29 +161,28 @@ The HTML page connects to `ws://localhost:8765` to communicate with a **separate
 ### Expected WebSocket Protocol
 
 **Get Printers Request:**
-```json
-{ "type": "get_printers" }
+```
+get
 ```
 
 **Get Printers Response:**
 ```json
-{ "type": "printers", "printers": [{"name": "Zebra ZD420"}] }
+["Printer1", "Printer2", "Zebra ZD420"]
 ```
 
-**Print Request:**
+**Print Request (sent for each item):**
 ```json
 {
-  "type": "print",
-  "job_id": "uuid",
-  "printer": "Zebra ZD420",
-  "data": [{"zpl": "^XA...^XZ"}]
+  "printer_name": "Zebra ZD420",
+  "label_qty": 1,
+  "data": "^XA...^XZ"
 }
 ```
 
-**Print Response:**
-```json
-{ "type": "print_result", "success": true }
-```
+### Features
+- Auto-selects first printer from the list
+- Sends each print item separately
+- Auto-closes tab after successful print
 
 ## Environment Variables
 

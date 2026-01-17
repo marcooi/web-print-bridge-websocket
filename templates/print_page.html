@@ -413,7 +413,15 @@
                 log(`Sent item ${index + 1}/${dataItems.length}`);
             });
 
-            log('All print jobs sent!', 'success');
+            log('All print jobs sent! Closing tab...', 'success');
+
+            // Auto-close tab after a short delay (give user time to see success message)
+            setTimeout(() => {
+                window.close();
+                // If window.close() doesn't work (page not opened via script),
+                // show a message that they can close manually
+                log('You can now close this tab.', 'success');
+            }, 1500);
         }
 
         // =================================================================
