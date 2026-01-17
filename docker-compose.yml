@@ -24,7 +24,7 @@ services:
     # Port mapping: host:container
     # Access the application at http://localhost:8000
     ports:
-      - "8000:8000"
+      - "8001:8000"
 
     # Volume mapping for SQLite database persistence
     # The database file will be stored in ./app_data/printjobs.db on the host

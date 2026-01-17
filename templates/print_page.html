@@ -155,7 +155,7 @@
         // =================================================================
 
         // Local WebSocket bridge address (runs on user's host machine, NOT Docker)
-        const WS_URL = 'ws://localhost:8765';
+        const WS_URL = 'ws://localhost:5001/printers';
 
         // Print job data injected from Jinja2 template
         const PRINT_DATA = {{ data_json | safe }};
@@ -235,10 +235,17 @@
 
                 ws.onmessage = function (event) {
                     try {
-                        const message = JSON.parse(event.data);
-                        handleMessage(message);
+                        const data = JSON.parse(event.data);
+                        // Response is a plain array of printer names
+                        if (Array.isArray(data)) {
+                            log(`Received ${data.length} printers`, 'success');
+                            populatePrinterList(data);
+                        } else {
+                            // Handle other message types if needed
+                            log(`Received: ${JSON.stringify(data)}`);
+                        }
                     } catch (e) {
-                        log(`Received non-JSON message: ${event.data}`, 'warning');
+                        log(`Received message: ${event.data}`);
                     }
                 };
 
@@ -298,31 +305,8 @@
         // Message Handling
         // =================================================================
 
-        function handleMessage(message) {
-            switch (message.type) {
-                case 'printers':
-                    // Handle printer list response
-                    log(`Received ${message.printers?.length || 0} printers`, 'success');
-                    populatePrinterList(message.printers || []);
-                    break;
-
-                case 'print_result':
-                    // Handle print result
-                    if (message.success) {
-                        log(`Print job completed successfully!`, 'success');
-                    } else {
-                        log(`Print failed: ${message.error || 'Unknown error'}`, 'error');
-                    }
-                    break;
-
-                case 'error':
-                    log(`Error: ${message.message}`, 'error');
-                    break;
-
-                default:
-                    log(`Unknown message type: ${message.type}`, 'warning');
-            }
-        }
+        // Message handling is now done directly in ws.onmessage
+        // since the server returns a plain array of printer names
 
         // =================================================================
         // Printer Management
@@ -335,7 +319,7 @@
             }
 
             log('Requesting printer list...');
-            ws.send(JSON.stringify({ type: 'get_printers' }));
+            ws.send('get');
         }
 
         function populatePrinterList(printers) {
