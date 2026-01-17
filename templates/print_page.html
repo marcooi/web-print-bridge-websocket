@@ -325,12 +325,6 @@
         function populatePrinterList(printers) {
             printerSelect.innerHTML = '';
 
-            // Add default option
-            const defaultOption = document.createElement('option');
-            defaultOption.value = '';
-            defaultOption.textContent = '-- Pilih --';
-            printerSelect.appendChild(defaultOption);
-
             if (printers.length === 0) {
                 const noOption = document.createElement('option');
                 noOption.value = '';
@@ -341,12 +335,22 @@
             }
 
             // Add printer options
-            printers.forEach(printer => {
+            printers.forEach((printer, index) => {
                 const option = document.createElement('option');
-                option.value = printer.name || printer;
-                option.textContent = printer.name || printer;
+                const printerName = printer.name || printer;
+                option.value = printerName;
+                option.textContent = printerName;
                 printerSelect.appendChild(option);
             });
+
+            // Auto-select the first printer (assumes server returns default printer first)
+            if (printers.length > 0) {
+                const firstPrinter = printers[0].name || printers[0];
+                printerSelect.value = firstPrinter;
+                selectedPrinter = firstPrinter;
+                updatePrintButton();
+                log(`Auto-selected default printer: ${firstPrinter}`);
+            }
         }
 
         // Handle printer selection change
@@ -388,17 +392,28 @@
             }
 
             const qty = parseInt(qtyInput.value) || 1;
+            const dataItems = PRINT_DATA.data || [];
 
-            const printPayload = {
-                type: 'print',
-                job_id: JOB_ID,
-                printer: selectedPrinter,
-                quantity: qty,
-                data: PRINT_DATA.data
-            };
+            if (dataItems.length === 0) {
+                log('No print data available', 'warning');
+                return;
+            }
 
-            log(`Sending print job to ${selectedPrinter} (qty: ${qty})...`);
-            ws.send(JSON.stringify(printPayload));
+            log(`Sending ${dataItems.length} print job(s) to ${selectedPrinter} (qty: ${qty} each)...`);
+
+            // Send each data item separately
+            dataItems.forEach((item, index) => {
+                const printPayload = {
+                    printer_name: selectedPrinter,
+                    label_qty: qty,
+                    data: item.zpl
+                };
+
+                ws.send(JSON.stringify(printPayload));
+                log(`Sent item ${index + 1}/${dataItems.length}`);
+            });
+
+            log('All print jobs sent!', 'success');
         }
 
         // =================================================================
