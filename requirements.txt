@@ -1,0 +1,13 @@
+# FastAPI and ASGI Server
+fastapi
+uvicorn[standard]
+
+# Database ORM
+sqlalchemy
+
+# Data Validation (already included with FastAPI, but explicit for clarity)
+pydantic
+
+# HTML Templating
+jinja2
+

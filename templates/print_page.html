@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Print Bridge - Print Job</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for ZPL code display */
+        .zpl-code {
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        
+        {% if error %}
+        <!-- Error State -->
+        <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <svg class="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <h1 class="text-2xl font-bold text-red-700 mb-2">Error</h1>
+            <p class="text-red-600">{{ error_message }}</p>
+        </div>
+        
+        {% else %}
+        <!-- Success State - Print Job View -->
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-6 py-4">
+                <h1 class="text-2xl font-bold">Print Job</h1>
+                <p class="text-blue-100 text-sm mt-1">Local Print Bridge</p>
+            </div>
+            
+            <!-- Job Information -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Job ID</label>
+                        <p class="text-gray-900 font-mono text-sm">{{ job_id }}</p>
+                    </div>
+                    {% if created_at %}
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Created At</label>
+                        <p class="text-gray-900 text-sm" id="created-at">{{ created_at }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Connection Status -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <span id="status-indicator" class="w-3 h-3 rounded-full bg-yellow-400 mr-3"></span>
+                        <span id="status-text" class="text-sm text-gray-600">Connecting to local printer bridge...</span>
+                    </div>
+                    <button 
+                        id="reconnect-btn"
+                        onclick="connectWebSocket()"
+                        class="hidden px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    >
+                        Reconnect
+                    </button>
+                </div>
+                
+                <!-- Printer Selection -->
+                <div id="printer-section" class="mt-4 hidden">
+                    <label class="text-sm font-medium text-gray-500 block mb-2">Select Printer</label>
+                    <select 
+                        id="printer-select"
+                        class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value="">Loading printers...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- ZPL Data Preview -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">Print Data ({{ data|length }} items)</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600 border-b">#</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600 border-b">ZPL Command Preview</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in data %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm text-gray-500 border-b align-top">{{ loop.index }}</td>
+                                <td class="px-4 py-3 border-b">
+                                    <pre class="zpl-code text-xs text-gray-700 bg-gray-100 p-2 rounded max-h-24 overflow-y-auto">{{ item.zpl[:200] }}{% if item.zpl|length > 200 %}...{% endif %}</pre>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="px-6 py-4 bg-gray-50">
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button 
+                        id="print-btn"
+                        onclick="sendPrintJob()"
+                        disabled
+                        class="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    >
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                        </svg>
+                        Print
+                    </button>
+                    <button 
+                        onclick="window.close()"
+                        class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Print Status Log -->
+        <div class="mt-6 bg-white rounded-lg shadow-lg overflow-hidden">
+            <div class="px-6 py-3 bg-gray-800 text-white flex items-center justify-between">
+                <h3 class="font-semibold">Print Log</h3>
+                <button onclick="clearLog()" class="text-xs text-gray-400 hover:text-white">Clear</button>
+            </div>
+            <div id="log-container" class="px-4 py-3 max-h-48 overflow-y-auto font-mono text-sm bg-gray-900 text-gray-300">
+                <p class="text-gray-500">Waiting for connection...</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not error %}
+    <script>
+        // =================================================================
+        // Configuration
+        // =================================================================
+        
+        // Local WebSocket bridge address (runs on user's host machine, NOT Docker)
+        const WS_URL = 'ws://localhost:8765';
+        
+        // Print job data injected from Jinja2 template
+        const PRINT_DATA = {{ data_json | safe }};
+        const JOB_ID = '{{ job_id }}';
+        
+        // =================================================================
+        // State
+        // =================================================================
+        
+        let ws = null;
+        let isConnected = false;
+        let selectedPrinter = null;
+        
+        // =================================================================
+        // DOM Elements
+        // =================================================================
+        
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const reconnectBtn = document.getElementById('reconnect-btn');
+        const printerSection = document.getElementById('printer-section');
+        const printerSelect = document.getElementById('printer-select');
+        const printBtn = document.getElementById('print-btn');
+        const logContainer = document.getElementById('log-container');
+        
+        // =================================================================
+        // Logging
+        // =================================================================
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                'info': 'text-gray-300',
+                'success': 'text-green-400',
+                'error': 'text-red-400',
+                'warning': 'text-yellow-400'
+            };
+            
+            const line = document.createElement('p');
+            line.className = colors[type] || colors.info;
+            line.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(line);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function clearLog() {
+            logContainer.innerHTML = '';
+            log('Log cleared');
+        }
+        
+        // =================================================================
+        // WebSocket Connection
+        // =================================================================
+        
+        function connectWebSocket() {
+            // Close existing connection if any
+            if (ws) {
+                ws.close();
+            }
+            
+            log(`Connecting to ${WS_URL}...`);
+            updateStatus('connecting');
+            
+            try {
+                ws = new WebSocket(WS_URL);
+                
+                ws.onopen = function() {
+                    log('Connected to local printer bridge', 'success');
+                    isConnected = true;
+                    updateStatus('connected');
+                    
+                    // Request printer list immediately after connection
+                    requestPrinterList();
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleMessage(message);
+                    } catch (e) {
+                        log(`Received non-JSON message: ${event.data}`, 'warning');
+                    }
+                };
+                
+                ws.onclose = function(event) {
+                    log(`Disconnected from printer bridge (code: ${event.code})`, 'warning');
+                    isConnected = false;
+                    updateStatus('disconnected');
+                };
+                
+                ws.onerror = function(error) {
+                    log('WebSocket error - is the local printer bridge running?', 'error');
+                    isConnected = false;
+                    updateStatus('error');
+                };
+                
+            } catch (e) {
+                log(`Failed to connect: ${e.message}`, 'error');
+                updateStatus('error');
+            }
+        }
+        
+        function updateStatus(status) {
+            const states = {
+                'connecting': {
+                    indicator: 'bg-yellow-400',
+                    text: 'Connecting to local printer bridge...',
+                    showReconnect: false
+                },
+                'connected': {
+                    indicator: 'bg-green-500',
+                    text: 'Connected to local printer bridge',
+                    showReconnect: false
+                },
+                'disconnected': {
+                    indicator: 'bg-gray-400',
+                    text: 'Disconnected from printer bridge',
+                    showReconnect: true
+                },
+                'error': {
+                    indicator: 'bg-red-500',
+                    text: 'Connection error - check if local bridge is running',
+                    showReconnect: true
+                }
+            };
+            
+            const state = states[status] || states.disconnected;
+            
+            statusIndicator.className = `w-3 h-3 rounded-full ${state.indicator} mr-3`;
+            statusText.textContent = state.text;
+            reconnectBtn.classList.toggle('hidden', !state.showReconnect);
+            
+            // Enable/disable print button based on connection status
+            printBtn.disabled = !isConnected || !selectedPrinter;
+        }
+        
+        // =================================================================
+        // Message Handling
+        // =================================================================
+        
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'printers':
+                    // Handle printer list response
+                    log(`Received ${message.printers?.length || 0} printers`, 'success');
+                    populatePrinterList(message.printers || []);
+                    break;
+                    
+                case 'print_result':
+                    // Handle print result
+                    if (message.success) {
+                        log(`Print job completed successfully!`, 'success');
+                    } else {
+                        log(`Print failed: ${message.error || 'Unknown error'}`, 'error');
+                    }
+                    break;
+                    
+                case 'error':
+                    log(`Error: ${message.message}`, 'error');
+                    break;
+                    
+                default:
+                    log(`Unknown message type: ${message.type}`, 'warning');
+            }
+        }
+        
+        // =================================================================
+        // Printer Management
+        // =================================================================
+        
+        function requestPrinterList() {
+            if (!isConnected || !ws) {
+                log('Cannot request printers - not connected', 'error');
+                return;
+            }
+            
+            log('Requesting printer list...');
+            ws.send(JSON.stringify({ type: 'get_printers' }));
+        }
+        
+        function populatePrinterList(printers) {
+            printerSelect.innerHTML = '';
+            
+            if (printers.length === 0) {
+                printerSelect.innerHTML = '<option value="">No printers found</option>';
+                printerSection.classList.remove('hidden');
+                return;
+            }
+            
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select a printer...';
+            printerSelect.appendChild(defaultOption);
+            
+            // Add printer options
+            printers.forEach(printer => {
+                const option = document.createElement('option');
+                option.value = printer.name || printer;
+                option.textContent = printer.name || printer;
+                printerSelect.appendChild(option);
+            });
+            
+            printerSection.classList.remove('hidden');
+        }
+        
+        // Handle printer selection change
+        printerSelect.addEventListener('change', function() {
+            selectedPrinter = this.value;
+            printBtn.disabled = !isConnected || !selectedPrinter;
+            
+            if (selectedPrinter) {
+                log(`Selected printer: ${selectedPrinter}`);
+            }
+        });
+        
+        // =================================================================
+        // Print Job Sending
+        // =================================================================
+        
+        function sendPrintJob() {
+            if (!isConnected || !ws) {
+                log('Cannot print - not connected to printer bridge', 'error');
+                return;
+            }
+            
+            if (!selectedPrinter) {
+                log('Please select a printer first', 'warning');
+                return;
+            }
+            
+            const printPayload = {
+                type: 'print',
+                job_id: JOB_ID,
+                printer: selectedPrinter,
+                data: PRINT_DATA.data
+            };
+            
+            log(`Sending print job to ${selectedPrinter}...`);
+            ws.send(JSON.stringify(printPayload));
+        }
+        
+        // =================================================================
+        // Initialization
+        // =================================================================
+        
+        // Connect to WebSocket when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Page loaded, initializing...');
+            connectWebSocket();
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

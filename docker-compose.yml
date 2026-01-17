@@ -1,0 +1,48 @@
+# =============================================================================
+# Local Print Bridge - Docker Compose Configuration
+# =============================================================================
+#
+# Usage:
+#   Start:   docker-compose up -d
+#   Stop:    docker-compose down
+#   Rebuild: docker-compose up --build -d
+#   Logs:    docker-compose logs -f print-bridge
+#
+# The SQLite database is persisted in ./app_data on the host machine.
+# =============================================================================
+
+services:
+  print-bridge:
+    # Build from the Dockerfile in current directory
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # Container name for easy reference
+    container_name: local-print-bridge
+
+    # Port mapping: host:container
+    # Access the application at http://localhost:8000
+    ports:
+      - "8000:8000"
+
+    # Volume mapping for SQLite database persistence
+    # The database file will be stored in ./app_data/printjobs.db on the host
+    # This ensures data survives container restarts and rebuilds
+    volumes:
+      - ./app_data:/app/data
+
+    # Restart policy: always restart unless explicitly stopped
+    restart: unless-stopped
+
+    # Environment variables (can be extended as needed)
+    environment:
+      - PYTHONUNBUFFERED=1
+
+    # Health check configuration
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
