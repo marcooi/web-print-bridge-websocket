@@ -122,6 +122,12 @@ def get_db():
 # API Endpoints
 # =============================================================================
 
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    """Root endpoint - shows a simple landing page."""
+    return templates.TemplateResponse(request=request, name="index.html")
+
+
 @app.post("/api/print-jobs", response_model=PrintJobResponse)
 async def create_print_job(request: Request, job_data: PrintJobCreate):
     """
