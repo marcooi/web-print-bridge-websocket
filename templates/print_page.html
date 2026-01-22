@@ -406,7 +406,7 @@
                 const printPayload = {
                     printer_name: selectedPrinter,
                     label_qty: qty,
-                    data: item.zpl
+                    data: [{ barcode: item.zpl }]
                 };
 
                 ws.send(JSON.stringify(printPayload));

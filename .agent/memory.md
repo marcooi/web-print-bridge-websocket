@@ -53,7 +53,7 @@ The HTML page connects to a **local C# WebSocket bridge** running on the user's 
 | Direction | Message | Response |
 |-----------|---------|----------|
 | Client → Bridge | `get` (string) | `["Printer1", "Printer2"]` (JSON array) |
-| Client → Bridge | `{"printer_name":"...", "label_qty":1, "data":"^XA...^XZ"}` | N/A |
+| Client → Bridge | `{"printer_name":"...", "label_qty":1, "data":[{"barcode":"^XA...^XZ"}]}` | N/A |
 
 ### Print Page Features
 - Auto-selects first printer from the list

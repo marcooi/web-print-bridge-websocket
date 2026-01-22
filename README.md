@@ -175,7 +175,9 @@ get
 {
   "printer_name": "Zebra ZD420",
   "label_qty": 1,
-  "data": "^XA...^XZ"
+  "data": [
+    { "barcode": "^XA...^XZ" }
+  ]
 }
 ```
 
